@@ -1,5 +1,10 @@
 This this the changelog file for the Pothos Audio toolkit.
 
+Release 0.1.2 (2015-12-16)
+==========================
+
+- Added debian packaging support for audio toolkit
+
 Release 0.1.1 (2015-06-16)
 ==========================
 
