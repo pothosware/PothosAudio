@@ -6,6 +6,7 @@
 #include <Poco/Logger.h>
 #include <portaudio.h>
 #include <algorithm> //min/max
+#include <iostream>
 
 /***********************************************************************
  * |PothosDoc Audio Sink
@@ -54,15 +55,32 @@
  * |default "INTERLEAVED"
  * |preview disable
  *
+ * |param reportUnderflow [Report Underflow] Options for reporting underflow.
+ * <ul>
+ * <li>"LOGGER" - reports the full error message to the logger</li>
+ * <li>"STDERROR" - prints "aU" (audio underflow) to stderror</li>
+ * <li>"DISABLED" - disabled mode turns off all reporting</li>
+ * </ul>
+ * |default "STDERROR"
+ * |option [Logging Subsystem] "LOGGER"
+ * |option [Standard Error] "STDERROR"
+ * |option [Reporting Disabled] "DISABLED"
+ * |preview disable
+ *
  * |factory /audio/sink(deviceName, sampRate, dtype, numChans, chanMode)
+ * |setter setReportUnderflow(reportUnderflow)
  **********************************************************************/
 class AudioSink : public Pothos::Block
 {
 public:
     AudioSink(const std::string &deviceName, const double sampRate, const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode):
         _stream(nullptr),
-        _interleaved(chanMode == "INTERLEAVED")
+        _interleaved(chanMode == "INTERLEAVED"),
+        _reportUnderflowLogger(false),
+        _reportUnderflowStderror(true)
     {
+        this->registerCall(this, POTHOS_FCN_TUPLE(AudioSink, setReportUnderflow));
+
         PaError err = Pa_Initialize();
         if (err != paNoError)
         {
@@ -139,6 +157,17 @@ public:
         return new AudioSink(deviceName, sampRate, dtype, numChans, chanMode);
     }
 
+    void setReportUnderflow(const std::string &mode)
+    {
+        if (mode == "LOGGER"){}
+        else if (mode == "STDERROR"){}
+        else if (mode == "DISABLED"){}
+        else throw Pothos::InvalidArgumentException(
+            "AudioSink::setReportUnderflow("+mode+")", "unknown underflow report mode");
+        _reportUnderflowLogger = (mode == "LOGGER");
+        _reportUnderflowStderror = (mode == "STDERROR");
+    }
+
     void activate(void)
     {
         PaError err = Pa_StartStream(_stream);
@@ -183,7 +212,15 @@ public:
 
         //peform write to the device
         PaError err = Pa_WriteStream(_stream, buffer, numFrames);
-        if (err != paNoError)
+
+        //handle the error reporting
+        bool logError = err != paNoError;
+        if (err == paOutputUnderflowed)
+        {
+            if (_reportUnderflowStderror) std::cerr << "aU" << std::flush;
+            logError = _reportUnderflowLogger;
+        }
+        if (logError)
         {
             poco_error(Poco::Logger::get("AudioSink"), "Pa_WriteStream: " + std::string(Pa_GetErrorText(err)));
         }
@@ -195,6 +232,8 @@ public:
 private:
     PaStream *_stream;
     bool _interleaved;
+    bool _reportUnderflowLogger;
+    bool _reportUnderflowStderror;
 };
 
 static Pothos::BlockRegistry registerAudioSink(

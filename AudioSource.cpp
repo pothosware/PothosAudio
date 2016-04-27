@@ -6,6 +6,7 @@
 #include <Poco/Logger.h>
 #include <portaudio.h>
 #include <algorithm> //min/max
+#include <iostream>
 
 /***********************************************************************
  * |PothosDoc Audio Source
@@ -59,7 +60,20 @@
  * |default "INTERLEAVED"
  * |preview disable
  *
+ * |param reportOverflow [Report Overflow] Options for reporting overflow.
+ * <ul>
+ * <li>"LOGGER" - reports the full error message to the logger</li>
+ * <li>"STDERROR" - prints "aO" (audio overflow) to stderror</li>
+ * <li>"DISABLED" - disabled mode turns off all reporting</li>
+ * </ul>
+ * |default "STDERROR"
+ * |option [Logging Subsystem] "LOGGER"
+ * |option [Standard Error] "STDERROR"
+ * |option [Reporting Disabled] "DISABLED"
+ * |preview disable
+ *
  * |factory /audio/source(deviceName, sampRate, dtype, numChans, chanMode)
+ * |setter setReportOverflow(reportOverflow)
  **********************************************************************/
 class AudioSource : public Pothos::Block
 {
@@ -67,8 +81,12 @@ public:
     AudioSource(const std::string &deviceName, const double sampRate, const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode):
         _stream(nullptr),
         _interleaved(chanMode == "INTERLEAVED"),
-        _sendLabel(false)
+        _sendLabel(false),
+        _reportOverflowLogger(false),
+        _reportOverflowStderror(true)
     {
+        this->registerCall(this, POTHOS_FCN_TUPLE(AudioSource, setReportOverflow));
+
         PaError err = Pa_Initialize();
         if (err != paNoError)
         {
@@ -145,6 +163,17 @@ public:
         return new AudioSource(deviceName, sampRate, dtype, numChans, chanMode);
     }
 
+    void setReportOverflow(const std::string &mode)
+    {
+        if (mode == "LOGGER"){}
+        else if (mode == "STDERROR"){}
+        else if (mode == "DISABLED"){}
+        else throw Pothos::InvalidArgumentException(
+            "AudioSource::setReportOverflow("+mode+")", "unknown overflow report mode");
+        _reportOverflowLogger = (mode == "LOGGER");
+        _reportOverflowStderror = (mode == "STDERROR");
+    }
+
     void activate(void)
     {
         PaError err = Pa_StartStream(_stream);
@@ -190,7 +219,15 @@ public:
 
         //peform read from the device
         PaError err = Pa_ReadStream(_stream, buffer, numFrames);
-        if (err != paNoError)
+
+        //handle the error reporting
+        bool logError = err != paNoError;
+        if (err == paInputOverflowed)
+        {
+            if (_reportOverflowStderror) std::cerr << "aO" << std::flush;
+            logError = _reportOverflowLogger;
+        }
+        if (logError)
         {
             poco_error(Poco::Logger::get("AudioSource"), "Pa_ReadStream: " + std::string(Pa_GetErrorText(err)));
         }
@@ -211,6 +248,8 @@ private:
     PaStream *_stream;
     bool _interleaved;
     bool _sendLabel;
+    bool _reportOverflowLogger;
+    bool _reportOverflowStderror;
 };
 
 static Pothos::BlockRegistry registerAudioSource(
