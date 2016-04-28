@@ -22,7 +22,7 @@
  * and use it to set internal parameters like the axis scaling.
  *
  * |category /Audio
- * |category /Sinks
+ * |category /Sources
  * |keywords audio sound stereo mono microphone
  *
  * |param deviceName[Device Name] The name of an audio device on the system,
