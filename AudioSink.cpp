@@ -7,6 +7,7 @@
 #include <portaudio.h>
 #include <algorithm> //min/max
 #include <iostream>
+#include <chrono>
 
 /***********************************************************************
  * |PothosDoc Audio Sink
@@ -66,9 +67,20 @@
  * |option [Standard Error] "STDERROR"
  * |option [Reporting Disabled] "DISABLED"
  * |preview disable
+ * |tab Underflow
+ *
+ * |param underflowBackoff [Underflow Backoff] Configurable wait for mitigating underflows.
+ * The sink block will not consume samples after an underflow for the specified wait time.
+ * A small wait time of several milliseconds can help to prevent cascading underflows
+ * when the upstream source is not keeping up with the configured audio rate.
+ * |units milliseconds
+ * |preview valid
+ * |default 0
+ * |tab Underflow
  *
  * |factory /audio/sink(deviceName, sampRate, dtype, numChans, chanMode)
  * |setter setReportUnderflow(reportUnderflow)
+ * |setter setUnderflowBackoff(underflowBackoff)
  **********************************************************************/
 class AudioSink : public Pothos::Block
 {
@@ -80,6 +92,7 @@ public:
         _reportUnderflowStderror(true)
     {
         this->registerCall(this, POTHOS_FCN_TUPLE(AudioSink, setReportUnderflow));
+        this->registerCall(this, POTHOS_FCN_TUPLE(AudioSink, setUnderflowBackoff));
 
         PaError err = Pa_Initialize();
         if (err != paNoError)
@@ -168,8 +181,14 @@ public:
         _reportUnderflowStderror = (mode == "STDERROR");
     }
 
+    void setUnderflowBackoff(const long backoff)
+    {
+        _underflowBackoff = std::chrono::duration_cast<std::chrono::high_resolution_clock::duration>(std::chrono::milliseconds(backoff));
+    }
+
     void activate(void)
     {
+        _readyTime = std::chrono::high_resolution_clock::now();
         PaError err = Pa_StartStream(_stream);
         if (err != paNoError)
         {
@@ -217,6 +236,7 @@ public:
         bool logError = err != paNoError;
         if (err == paOutputUnderflowed)
         {
+            _readyTime += _underflowBackoff;
             if (_reportUnderflowStderror) std::cerr << "aU" << std::flush;
             logError = _reportUnderflowLogger;
         }
@@ -224,6 +244,9 @@ public:
         {
             poco_error(Poco::Logger::get("AudioSink"), "Pa_WriteStream: " + std::string(Pa_GetErrorText(err)));
         }
+
+        //not ready to consume because of backoff
+        if (_readyTime >= std::chrono::high_resolution_clock::now()) return this->yield();
 
         //consume buffer (all modes)
         for (auto port : this->inputs()) port->consume(numFrames);
@@ -234,6 +257,8 @@ private:
     bool _interleaved;
     bool _reportUnderflowLogger;
     bool _reportUnderflowStderror;
+    std::chrono::high_resolution_clock::duration _underflowBackoff;
+    std::chrono::high_resolution_clock::time_point _readyTime;
 };
 
 static Pothos::BlockRegistry registerAudioSink(

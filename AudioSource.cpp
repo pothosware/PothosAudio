@@ -7,6 +7,7 @@
 #include <portaudio.h>
 #include <algorithm> //min/max
 #include <iostream>
+#include <chrono>
 
 /***********************************************************************
  * |PothosDoc Audio Source
@@ -71,9 +72,20 @@
  * |option [Standard Error] "STDERROR"
  * |option [Reporting Disabled] "DISABLED"
  * |preview disable
+ * |tab Overflow
+ *
+ * |param overflowBackoff [Overflow Backoff] Configurable wait for mitigating overflows.
+ * The source block will not produce samples after an overflow for the specified wait time.
+ * A small wait time of several milliseconds can help to prevent cascading overflows
+ * when the downstream source is not keeping up with the configured audio rate.
+ * |units milliseconds
+ * |preview valid
+ * |default 0
+ * |tab Overflow
  *
  * |factory /audio/source(deviceName, sampRate, dtype, numChans, chanMode)
  * |setter setReportOverflow(reportOverflow)
+ * |setter setOverflowBackoff(overflowBackoff)
  **********************************************************************/
 class AudioSource : public Pothos::Block
 {
@@ -86,6 +98,7 @@ public:
         _reportOverflowStderror(true)
     {
         this->registerCall(this, POTHOS_FCN_TUPLE(AudioSource, setReportOverflow));
+        this->registerCall(this, POTHOS_FCN_TUPLE(AudioSource, setOverflowBackoff));
 
         PaError err = Pa_Initialize();
         if (err != paNoError)
@@ -174,8 +187,14 @@ public:
         _reportOverflowStderror = (mode == "STDERROR");
     }
 
+    void setOverflowBackoff(const long backoff)
+    {
+        _overflowBackoff = std::chrono::duration_cast<std::chrono::high_resolution_clock::duration>(std::chrono::milliseconds(backoff));
+    }
+
     void activate(void)
     {
+        _readyTime = std::chrono::high_resolution_clock::now();
         PaError err = Pa_StartStream(_stream);
         if (err != paNoError)
         {
@@ -224,6 +243,7 @@ public:
         bool logError = err != paNoError;
         if (err == paInputOverflowed)
         {
+            _readyTime += _overflowBackoff;
             if (_reportOverflowStderror) std::cerr << "aO" << std::flush;
             logError = _reportOverflowLogger;
         }
@@ -240,6 +260,9 @@ public:
             for (auto port : this->outputs()) port->postLabel(label);
         }
 
+        //not ready to produce because of backoff
+        if (_readyTime >= std::chrono::high_resolution_clock::now()) return this->yield();
+
         //produce buffer (all modes)
         for (auto port : this->outputs()) port->produce(numFrames);
     }
@@ -250,6 +273,8 @@ private:
     bool _sendLabel;
     bool _reportOverflowLogger;
     bool _reportOverflowStderror;
+    std::chrono::high_resolution_clock::duration _overflowBackoff;
+    std::chrono::high_resolution_clock::time_point _readyTime;
 };
 
 static Pothos::BlockRegistry registerAudioSource(
