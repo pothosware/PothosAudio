@@ -222,14 +222,8 @@ public:
         {
             throw Pothos::Exception("AudioSource.work()", "Pa_GetStreamReadAvailable: " + std::string(Pa_GetErrorText(numFrames)));
         }
+        if (numFrames == 0) numFrames = MIN_FRAMES_BLOCKING;
         numFrames = std::min<int>(numFrames, this->workInfo().minOutElements);
-
-        //handle do-nothing case with minimal sleep
-        if (numFrames == 0)
-        {
-            Pa_Sleep(this->workInfo().maxTimeoutNs/1000000);
-            return this->yield();
-        }
 
         //get the buffer
         void *buffer = nullptr;

@@ -36,6 +36,11 @@ endif()
 ########################################################################
 include_directories(${PORTAUDIO_INCLUDE_DIRS})
 add_definitions(${PORTAUDIO_DEFINITIONS})
+
+#the number of frames to block on an IO call
+#when no non-blocking frames are available.
+add_definitions(-DMIN_FRAMES_BLOCKING=1024)
+
 POTHOS_MODULE_UTIL(
     TARGET AudioSupport
     SOURCES
