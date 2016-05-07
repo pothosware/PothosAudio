@@ -44,6 +44,7 @@ add_definitions(-DMIN_FRAMES_BLOCKING=1024)
 POTHOS_MODULE_UTIL(
     TARGET AudioSupport
     SOURCES
+        AudioBlock.cpp
         AudioSource.cpp
         AudioSink.cpp
         AudioInfo.cpp
