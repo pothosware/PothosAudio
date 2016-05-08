@@ -12,7 +12,10 @@ public:
     AudioBlock(const std::string &blockName, const bool isSink, const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode);
     ~AudioBlock(void);
 
-    void setupStream(const std::string &deviceName, const double sampRate);
+    std::string getDescOverlay(void) const;
+
+    void setupDevice(const std::string &deviceName);
+    void setupStream(const double sampRate);
 
     void setReportMode(const std::string &mode);
     void setBackoffTime(const long backoff);

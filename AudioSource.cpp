@@ -80,7 +80,8 @@
  * |tab Overflow
  *
  * |factory /audio/source(dtype, numChans, chanMode)
- * |initializer setupStream(deviceName, sampRate)
+ * |initializer setupDevice(deviceName)
+ * |initializer setupStream(sampRate)
  * |setter setReportMode(reportMode)
  * |setter setBackoffTime(backoffTime)
  **********************************************************************/

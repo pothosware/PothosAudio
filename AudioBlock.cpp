@@ -2,31 +2,11 @@
 // SPDX-License-Identifier: BSL-1.0
 
 #include "AudioBlock.hpp"
+#include <Poco/JSON/Object.h>
+#include <Poco/JSON/Array.h>
 #include <cctype>
 #include <algorithm>
-
-static inline PaDeviceIndex getDeviceMatch(const std::string blockName, const std::string &deviceName, const PaDeviceIndex defaultIndex)
-{
-    //empty name, use default
-    if (deviceName.empty()) return defaultIndex;
-
-    //numeric name, use index
-    if (std::all_of(deviceName.begin(), deviceName.end(), ::isdigit))
-    {
-        auto index = std::stoi(deviceName);
-        if (index >= Pa_GetDeviceCount()) throw Pothos::RangeException(blockName+"("+deviceName+")", "Device index out of range");
-        return index;
-    }
-
-    //find the match by name
-    for (PaDeviceIndex i = 0; i < Pa_GetDeviceCount(); i++)
-    {
-        if (Pa_GetDeviceInfo(i)->name == deviceName) return i;
-    }
-
-    //cant locate by name
-    throw Pothos::NotFoundException(blockName+"("+deviceName+")", "No matching device");
-}
+#include <sstream>
 
 AudioBlock::AudioBlock(const std::string &blockName, const bool isSink, const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode):
     _blockName(blockName),
@@ -38,6 +18,8 @@ AudioBlock::AudioBlock(const std::string &blockName, const bool isSink, const Po
     _reportLogger(false),
     _reportStderror(true)
 {
+    this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, getDescOverlay));
+    this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, setupDevice));
     this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, setupStream));
     this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, setReportMode));
     this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, setBackoffTime));
@@ -76,17 +58,75 @@ AudioBlock::~AudioBlock(void)
     }
 }
 
-void AudioBlock::setupStream(const std::string &deviceName, const double sampRate)
+std::string AudioBlock::getDescOverlay(void) const
 {
-    //determine which device
-    const auto deviceIndex = getDeviceMatch("AudioBlock", deviceName, Pa_GetDefaultOutputDevice());
-    const auto deviceInfo = Pa_GetDeviceInfo(deviceIndex);
+    Poco::JSON::Object::Ptr topObj(new Poco::JSON::Object());
+
+    Poco::JSON::Array::Ptr params(new Poco::JSON::Array());
+    topObj->set("params", params);
+
+    Poco::JSON::Object::Ptr deviceNameParam(new Poco::JSON::Object());
+    params->add(deviceNameParam);
+
+    Poco::JSON::Array::Ptr options(new Poco::JSON::Array());
+    deviceNameParam->set("options", options);
+
+    for (PaDeviceIndex i = 0; i < Pa_GetDeviceCount(); i++)
+    {
+        Poco::JSON::Object::Ptr option(new Poco::JSON::Object());
+        const std::string deviceName(Pa_GetDeviceInfo(i)->name);
+        option->set("name", deviceName);
+        option->set("value", "\""+deviceName+"\"");
+    }
+
+    std::stringstream ss;
+    topObj->stringify(ss);
+    return ss.str();
+}
+
+void AudioBlock::setupDevice(const std::string &deviceName)
+{
+    //empty name, use default
+    if (deviceName.empty())
+    {
+        if (_isSink) _streamParams.device = Pa_GetDefaultOutputDevice();
+        else         _streamParams.device = Pa_GetDefaultInputDevice();
+        return;
+    }
+
+    //numeric name, use index
+    if (std::all_of(deviceName.begin(), deviceName.end(), ::isdigit))
+    {
+        _streamParams.device = std::stoi(deviceName);
+        if (_streamParams.device >= Pa_GetDeviceCount()) throw Pothos::RangeException(
+            "AudioBlock::setupDevice("+deviceName+")", "Device index out of range");
+        return;
+    }
+
+    //find the match by name
+    for (PaDeviceIndex i = 0; i < Pa_GetDeviceCount(); i++)
+    {
+        if (Pa_GetDeviceInfo(i)->name == deviceName)
+        {
+            _streamParams.device = i;
+            return;
+        }
+    }
+
+    //cant locate by name
+    throw Pothos::NotFoundException("AudioBlock::setupDevice("+deviceName+")", "No matching device");
+}
+
+void AudioBlock::setupStream(const double sampRate)
+{
+    //get device info
+    const auto deviceInfo = Pa_GetDeviceInfo(_streamParams.device);
     poco_information_f2(_logger, "Using %s through %s",
         std::string(deviceInfo->name), std::string(Pa_GetHostApiInfo(deviceInfo->hostApi)->name));
 
     //stream params
-    _streamParams.device = deviceIndex;
-    _streamParams.suggestedLatency = (deviceInfo->defaultLowOutputLatency + deviceInfo->defaultHighOutputLatency)/2;
+    if (_isSink) _streamParams.suggestedLatency = (deviceInfo->defaultLowOutputLatency + deviceInfo->defaultHighOutputLatency)/2;
+    else         _streamParams.suggestedLatency = (deviceInfo->defaultLowInputLatency + deviceInfo->defaultHighInputLatency)/2;
     _streamParams.hostApiSpecificStreamInfo = nullptr;
     const int requestedSize = Pa_GetSampleSize(_streamParams.sampleFormat);
 
