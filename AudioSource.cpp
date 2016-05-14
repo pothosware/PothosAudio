@@ -1,13 +1,9 @@
 // Copyright (c) 2014-2016 Josh Blum
 // SPDX-License-Identifier: BSL-1.0
 
-#include "AudioHelper.hpp"
-#include <Pothos/Framework.hpp>
-#include <Poco/Logger.h>
-#include <portaudio.h>
+#include "AudioBlock.hpp"
 #include <algorithm> //min/max
 #include <iostream>
-#include <chrono>
 
 /***********************************************************************
  * |PothosDoc Audio Source
@@ -61,7 +57,7 @@
  * |default "INTERLEAVED"
  * |preview disable
  *
- * |param reportOverflow [Report Overflow] Options for reporting overflow.
+ * |param reportMode [Report Mode] Options for reporting overflow.
  * <ul>
  * <li>"LOGGER" - reports the full error message to the logger</li>
  * <li>"STDERROR" - prints "aO" (audio overflow) to stderror</li>
@@ -74,7 +70,7 @@
  * |preview disable
  * |tab Overflow
  *
- * |param overflowBackoff [Overflow Backoff] Configurable wait for mitigating overflows.
+ * |param backoffTime [Backoff Time] Configurable wait for mitigating overflows.
  * The source block will not produce samples after an overflow for the specified wait time.
  * A small wait time of several milliseconds can help to prevent cascading overflows
  * when the downstream source is not keeping up with the configured audio rate.
@@ -83,133 +79,26 @@
  * |default 0
  * |tab Overflow
  *
- * |factory /audio/source(deviceName, sampRate, dtype, numChans, chanMode)
- * |setter setReportOverflow(reportOverflow)
- * |setter setOverflowBackoff(overflowBackoff)
+ * |factory /audio/source(dtype, numChans, chanMode)
+ * |initializer setupDevice(deviceName)
+ * |initializer setupStream(sampRate)
+ * |setter setReportMode(reportMode)
+ * |setter setBackoffTime(backoffTime)
  **********************************************************************/
-class AudioSource : public Pothos::Block
+class AudioSource : public AudioBlock
 {
 public:
-    AudioSource(const std::string &deviceName, const double sampRate, const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode):
-        _stream(nullptr),
-        _interleaved(chanMode == "INTERLEAVED"),
-        _sendLabel(false),
-        _reportOverflowLogger(false),
-        _reportOverflowStderror(true)
+    AudioSource(const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode):
+        AudioBlock("AudioSource", false, dtype, numChans, chanMode)
     {
-        this->registerCall(this, POTHOS_FCN_TUPLE(AudioSource, setReportOverflow));
-        this->registerCall(this, POTHOS_FCN_TUPLE(AudioSource, setOverflowBackoff));
-
-        PaError err = Pa_Initialize();
-        if (err != paNoError)
-        {
-            throw Pothos::Exception("AudioSource()", "Pa_Initialize: " + std::string(Pa_GetErrorText(err)));
-        }
-
-        //determine which device
-        const auto deviceIndex = getDeviceMatch("AudioSource", deviceName, Pa_GetDefaultInputDevice());
-        const auto deviceInfo = Pa_GetDeviceInfo(deviceIndex);
-        poco_information_f2(Poco::Logger::get("AudioSource"), "Using %s through %s",
-            std::string(deviceInfo->name), std::string(Pa_GetHostApiInfo(deviceInfo->hostApi)->name));
-
-        //stream params
-        PaStreamParameters streamParams;
-        streamParams.device = deviceIndex;
-        streamParams.channelCount = numChans;
-        if (dtype == Pothos::DType("float32")) streamParams.sampleFormat = paFloat32;
-        if (dtype == Pothos::DType("int32")) streamParams.sampleFormat = paInt32;
-        if (dtype == Pothos::DType("int16")) streamParams.sampleFormat = paInt16;
-        if (dtype == Pothos::DType("int8")) streamParams.sampleFormat = paInt8;
-        if (dtype == Pothos::DType("uint8")) streamParams.sampleFormat = paUInt8;
-        if (not _interleaved) streamParams.sampleFormat |= paNonInterleaved;
-        streamParams.suggestedLatency = (deviceInfo->defaultLowInputLatency + deviceInfo->defaultHighInputLatency)/2;
-        streamParams.hostApiSpecificStreamInfo = nullptr;
-
-        //try stream
-        err = Pa_IsFormatSupported(&streamParams, nullptr, sampRate);
-        if (err != paNoError)
-        {
-            throw Pothos::Exception("AudioSource()", "Pa_IsFormatSupported: " + std::string(Pa_GetErrorText(err)));
-        }
-
-        //open stream
-        err = Pa_OpenStream(
-            &_stream, // stream
-            &streamParams, // inputParameters
-            nullptr, // outputParameters
-            sampRate,  //sampleRate
-            paFramesPerBufferUnspecified, // framesPerBuffer
-            0, // streamFlags
-            nullptr, //streamCallback
-            nullptr); //userData
-        if (err != paNoError)
-        {
-            throw Pothos::Exception("AudioSource()", "Pa_OpenStream: " + std::string(Pa_GetErrorText(err)));
-        }
-        if (Pa_GetSampleSize(streamParams.sampleFormat) != int(dtype.size()))
-        {
-            throw Pothos::Exception("AudioSource()", "Pa_GetSampleSize mismatch");
-        }
-
         //setup ports
-        if (_interleaved) this->setupOutput(0, Pothos::DType(dtype.name(), numChans));
+        if (_interleaved) this->setupOutput(0, Pothos::DType::fromDType(dtype, numChans));
         else for (size_t i = 0; i < numChans; i++) this->setupOutput(i, dtype);
     }
 
-    ~AudioSource(void)
+    static Block *make(const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode)
     {
-        PaError err = Pa_CloseStream(_stream);
-        if (err != paNoError)
-        {
-            poco_error_f1(Poco::Logger::get("AudioSource"), "Pa_CloseStream: %s", std::string(Pa_GetErrorText(err)));
-        }
-
-        err = Pa_Terminate();
-        if (err != paNoError)
-        {
-            poco_error_f1(Poco::Logger::get("AudioSource"), "Pa_Terminate: %s", std::string(Pa_GetErrorText(err)));
-        }
-    }
-
-    static Block *make(const std::string &deviceName, const double sampRate, const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode)
-    {
-        return new AudioSource(deviceName, sampRate, dtype, numChans, chanMode);
-    }
-
-    void setReportOverflow(const std::string &mode)
-    {
-        if (mode == "LOGGER"){}
-        else if (mode == "STDERROR"){}
-        else if (mode == "DISABLED"){}
-        else throw Pothos::InvalidArgumentException(
-            "AudioSource::setReportOverflow("+mode+")", "unknown overflow report mode");
-        _reportOverflowLogger = (mode == "LOGGER");
-        _reportOverflowStderror = (mode == "STDERROR");
-    }
-
-    void setOverflowBackoff(const long backoff)
-    {
-        _overflowBackoff = std::chrono::duration_cast<std::chrono::high_resolution_clock::duration>(std::chrono::milliseconds(backoff));
-    }
-
-    void activate(void)
-    {
-        _readyTime = std::chrono::high_resolution_clock::now();
-        PaError err = Pa_StartStream(_stream);
-        if (err != paNoError)
-        {
-            throw Pothos::Exception("AudioSource.activate()", "Pa_StartStream: " + std::string(Pa_GetErrorText(err)));
-        }
-        _sendLabel = true;
-    }
-
-    void deactivate(void)
-    {
-        PaError err = Pa_StopStream(_stream);
-        if (err != paNoError)
-        {
-            throw Pothos::Exception("AudioSource.deactivate()", "Pa_StopStream: " + std::string(Pa_GetErrorText(err)));
-        }
+        return new AudioSource(dtype, numChans, chanMode);
     }
 
     void work(void)
@@ -220,7 +109,7 @@ public:
         int numFrames = Pa_GetStreamReadAvailable(_stream);
         if (numFrames < 0)
         {
-            throw Pothos::Exception("AudioSource.work()", "Pa_GetStreamReadAvailable: " + std::string(Pa_GetErrorText(numFrames)));
+            throw Pothos::Exception("AudioSource::work()", "Pa_GetStreamReadAvailable: " + std::string(Pa_GetErrorText(numFrames)));
         }
         if (numFrames == 0) numFrames = MIN_FRAMES_BLOCKING;
         numFrames = std::min<int>(numFrames, this->workInfo().minOutElements);
@@ -237,13 +126,13 @@ public:
         bool logError = err != paNoError;
         if (err == paInputOverflowed)
         {
-            _readyTime += _overflowBackoff;
-            if (_reportOverflowStderror) std::cerr << "aO" << std::flush;
-            logError = _reportOverflowLogger;
+            _readyTime += _backoffTime;
+            if (_reportStderror) std::cerr << "aO" << std::flush;
+            logError = _reportLogger;
         }
         if (logError)
         {
-            poco_error(Poco::Logger::get("AudioSource"), "Pa_ReadStream: " + std::string(Pa_GetErrorText(err)));
+            poco_error(_logger, "Pa_ReadStream: " + std::string(Pa_GetErrorText(err)));
         }
 
         if (_sendLabel)
@@ -260,15 +149,6 @@ public:
         //produce buffer (all modes)
         for (auto port : this->outputs()) port->produce(numFrames);
     }
-
-private:
-    PaStream *_stream;
-    bool _interleaved;
-    bool _sendLabel;
-    bool _reportOverflowLogger;
-    bool _reportOverflowStderror;
-    std::chrono::high_resolution_clock::duration _overflowBackoff;
-    std::chrono::high_resolution_clock::time_point _readyTime;
 };
 
 static Pothos::BlockRegistry registerAudioSource(

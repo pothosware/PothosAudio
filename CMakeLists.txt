@@ -4,7 +4,11 @@
 cmake_minimum_required(VERSION 2.8.9)
 project(PothosAudio CXX)
 
-find_package(Pothos CONFIG REQUIRED)
+if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
+    find_package(Pothos "0.4.0" CONFIG REQUIRED)
+else()
+    find_package(Pothos CONFIG REQUIRED) #in-tree build
+endif()
 
 ########################################################################
 # Find PortAudio
@@ -44,6 +48,7 @@ add_definitions(-DMIN_FRAMES_BLOCKING=1024)
 POTHOS_MODULE_UTIL(
     TARGET AudioSupport
     SOURCES
+        AudioBlock.cpp
         AudioSource.cpp
         AudioSink.cpp
         AudioInfo.cpp
