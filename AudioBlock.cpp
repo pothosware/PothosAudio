@@ -86,6 +86,9 @@ std::string AudioBlock::getDescOverlay(void) const
 
 void AudioBlock::setupDevice(const std::string &deviceName)
 {
+    if (Pa_GetDeviceCount() == 0) throw Pothos::NotFoundException(
+        "AudioBlock::setupDevice()", "No devices available");
+
     //empty name, use default
     if (deviceName.empty())
     {
