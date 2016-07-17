@@ -12,7 +12,7 @@ public:
     AudioBlock(const std::string &blockName, const bool isSink, const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode);
     ~AudioBlock(void);
 
-    std::string getDescOverlay(void) const;
+    std::string overlay(void) const;
 
     void setupDevice(const std::string &deviceName);
     void setupStream(const double sampRate);

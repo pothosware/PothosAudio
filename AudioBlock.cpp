@@ -18,7 +18,7 @@ AudioBlock::AudioBlock(const std::string &blockName, const bool isSink, const Po
     _reportLogger(false),
     _reportStderror(true)
 {
-    this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, getDescOverlay));
+    this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, overlay));
     this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, setupDevice));
     this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, setupStream));
     this->registerCall(this, POTHOS_FCN_TUPLE(AudioBlock, setReportMode));
@@ -58,7 +58,7 @@ AudioBlock::~AudioBlock(void)
     }
 }
 
-std::string AudioBlock::getDescOverlay(void) const
+std::string AudioBlock::overlay(void) const
 {
     Poco::JSON::Object::Ptr topObj(new Poco::JSON::Object());
 
@@ -77,10 +77,11 @@ std::string AudioBlock::getDescOverlay(void) const
         const std::string deviceName(Pa_GetDeviceInfo(i)->name);
         option->set("name", deviceName);
         option->set("value", "\""+deviceName+"\"");
+        options->add(option);
     }
 
     std::stringstream ss;
-    topObj->stringify(ss);
+    topObj->stringify(ss, 4);
     return ss.str();
 }
 
