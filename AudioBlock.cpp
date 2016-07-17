@@ -69,8 +69,22 @@ std::string AudioBlock::overlay(void) const
     params->add(deviceNameParam);
 
     Poco::JSON::Array::Ptr options(new Poco::JSON::Array());
+    deviceNameParam->set("key", "deviceName");
     deviceNameParam->set("options", options);
 
+    //editable drop down for user-controlled input
+    Poco::JSON::Object::Ptr deviceNameWidgetKwargs(new Poco::JSON::Object());
+    deviceNameWidgetKwargs->set("editable", true);
+    deviceNameParam->set("widgetKwargs", deviceNameWidgetKwargs);
+    deviceNameParam->set("widgetType", "DropDown");
+
+    //a default option for empty/unspecified device
+    Poco::JSON::Object::Ptr defaultOption(new Poco::JSON::Object());
+    defaultOption->set("name", "Default Device");
+    defaultOption->set("value", "\"\"");
+    options->add(defaultOption);
+
+    //enumerate devices and add to the options list
     for (PaDeviceIndex i = 0; i < Pa_GetDeviceCount(); i++)
     {
         Poco::JSON::Object::Ptr option(new Poco::JSON::Object());
