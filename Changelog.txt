@@ -3,6 +3,7 @@ This this the changelog file for the Pothos Audio toolkit.
 Release 0.2.0 (pending)
 ==========================
 
+- Implement JSON overlay for GUI device enumeration
 - Refactor audio source/sink around common block
 
 Release 0.1.3 (2016-05-10)
