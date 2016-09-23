@@ -17,13 +17,14 @@ Package: pothos-modules-audio
 Section: libs
 Architecture: all
 Pre-Depends: ${misc:Pre-Depends}
-Depends: pothos-modules0.4-3-audio, ${misc:Depends}
+Depends: pothos0.4-3-modules-audio, ${misc:Depends}
 Description: Audio source and sink blocks - metapackage
  The Pothos data-flow software suite.
 
-Package: pothos-modules0.4-3-audio
+Package: pothos0.4-3-modules-audio
 Section: libs
 Architecture: any
+Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Audio source and sink blocks
