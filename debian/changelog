@@ -1,3 +1,9 @@
+pothos-audio (0.2.1-1) unstable; urgency=low
+
+  * Release 0.2.1 (2017-07-14)
+
+ -- Josh Blum <josh@pothosware.com>  Fri, 14 Jul 2017 21:25:27 -0000
+
 pothos-audio (0.2.0) unstable; urgency=low
 
   * Release 0.2.0 (2016-08-02)
