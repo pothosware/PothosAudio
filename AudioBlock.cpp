@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016 Josh Blum
+// Copyright (c) 2014-2017 Josh Blum
 // SPDX-License-Identifier: BSL-1.0
 
 #include "AudioBlock.hpp"
@@ -76,7 +76,7 @@ std::string AudioBlock::overlay(void) const
     Poco::JSON::Object::Ptr deviceNameWidgetKwargs(new Poco::JSON::Object());
     deviceNameWidgetKwargs->set("editable", true);
     deviceNameParam->set("widgetKwargs", deviceNameWidgetKwargs);
-    deviceNameParam->set("widgetType", "DropDown");
+    deviceNameParam->set("widgetType", "ComboBox");
 
     //a default option for empty/unspecified device
     Poco::JSON::Object::Ptr defaultOption(new Poco::JSON::Object());
