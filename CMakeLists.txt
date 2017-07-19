@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 2.8.9)
 project(PothosAudio CXX)
 
 if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
-    find_package(Pothos "0.4.0" CONFIG REQUIRED)
+    find_package(Pothos "0.6.0" CONFIG REQUIRED)
 else()
     find_package(Pothos CONFIG REQUIRED) #in-tree build
 endif()
@@ -25,6 +25,21 @@ else()
 endif()
 
 ########################################################################
+# yaml-cpp library
+########################################################################
+if(NOT YAMLCPP_IN_TREE)
+    find_package(YamlCpp)
+endif(NOT YAMLCPP_IN_TREE)
+
+if (YAMLCPP_FOUND)
+    message(STATUS "YAMLCPP_VERSION: ${YAMLCPP_VERSION}")
+    message(STATUS "YAMLCPP_INCLUDE_DIRS: ${YAMLCPP_INCLUDE_DIRS}")
+    message(STATUS "YAMLCPP_LIBRARIES: ${YAMLCPP_LIBRARIES}")
+else (YAMLCPP_FOUND)
+    message(WARNING "Pothos Audio blocks require yaml-cpp, skipping...")
+endif (YAMLCPP_FOUND)
+
+########################################################################
 ## Feature registration
 ########################################################################
 include(FeatureSummary)
@@ -39,6 +54,7 @@ endif()
 ## Build and install module
 ########################################################################
 include_directories(${PORTAUDIO_INCLUDE_DIRS})
+include_directories(${YAMLCPP_INCLUDE_DIRS})
 add_definitions(${PORTAUDIO_DEFINITIONS})
 
 #the number of frames to block on an IO call
@@ -52,7 +68,9 @@ POTHOS_MODULE_UTIL(
         AudioSource.cpp
         AudioSink.cpp
         AudioInfo.cpp
-    LIBRARIES ${PORTAUDIO_LIBRARIES}
+    LIBRARIES
+        ${PORTAUDIO_LIBRARIES}
+        ${YAMLCPP_LIBRARIES}
     DESTINATION audio
     ENABLE_DOCS
 )
