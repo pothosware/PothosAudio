@@ -24,15 +24,13 @@ else()
     message(WARNING "Pothos Audio blocks require PortAudio, skipping...")
 endif()
 
-
-
 ########################################################################
 # json.hpp header
 ########################################################################
-find_path(JSON_HPP_INCLUDE_DIR NAMES json.hpp)
+find_path(JSON_HPP_INCLUDE_DIR NAMES json.hpp PATH_SUFFIXES nlohmann)
 
 if (NOT JSON_HPP_INCLUDE_DIR)
-    message(WARNING "Pothos Audio blocks requires json.hpp, skipping...")
+    message(WARNING "Pothos Audio blocks require json.hpp, skipping...")
 endif (NOT JSON_HPP_INCLUDE_DIR)
 
 ########################################################################
