@@ -7,7 +7,7 @@ Build-Depends:
     cmake (>= 2.8.9),
     libpothos-dev,
     libpoco-dev (>= 1.6),
-    libyaml-cpp-dev,
+    nlohmann-json-dev,
     portaudio19-dev, libjack-jackd2-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/pothosware/pothos-audio/wiki

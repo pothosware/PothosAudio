@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: BSL-1.0
 
 #include <Pothos/Plugin.hpp>
-#include <yaml-cpp/yaml.h>
 #include <portaudio.h>
-#include <sstream>
+#include <json.hpp>
+
+using json = nlohmann::json;
 
 static std::string enumerateAudioDevices(void)
 {
-    YAML::Node topObject;
+    json topObject;
     Pa_Initialize();
 
-    YAML::Node devicesArray;
-    topObject["PortAudio Device"] = devicesArray;
+    json devicesArray;
     for (PaDeviceIndex i = 0; i < Pa_GetDeviceCount(); i++)
     {
         auto info = Pa_GetDeviceInfo(i);
-        YAML::Node infoObject;
+        json infoObject;
         infoObject["Device Name"] = std::string(info->name);
         infoObject["Host API Name"] = std::string(Pa_GetHostApiInfo(info->hostApi)->name);
         infoObject["Max Input Channels"] = info->maxInputChannels;
@@ -25,13 +25,12 @@ static std::string enumerateAudioDevices(void)
         devicesArray.push_back(infoObject);
     }
 
-    topObject["PortAudio Version"] = std::string(Pa_GetVersionText());
+    topObject["PortAudio Device"] = devicesArray;
+    topObject["PortAudio Version"] = Pa_GetVersionText();
 
     Pa_Terminate();
 
-    std::stringstream ss;
-    ss << topObject;
-    return ss.str();
+    return devicesArray.dump();
 }
 
 pothos_static_block(registerAudioInfo)

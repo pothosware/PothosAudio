@@ -24,27 +24,23 @@ else()
     message(WARNING "Pothos Audio blocks require PortAudio, skipping...")
 endif()
 
-########################################################################
-# yaml-cpp library
-########################################################################
-if(NOT YAMLCPP_IN_TREE)
-    find_package(YamlCpp)
-endif(NOT YAMLCPP_IN_TREE)
 
-if (YAMLCPP_FOUND)
-    message(STATUS "YAMLCPP_VERSION: ${YAMLCPP_VERSION}")
-    message(STATUS "YAMLCPP_INCLUDE_DIRS: ${YAMLCPP_INCLUDE_DIRS}")
-    message(STATUS "YAMLCPP_LIBRARIES: ${YAMLCPP_LIBRARIES}")
-else (YAMLCPP_FOUND)
-    message(WARNING "Pothos Audio blocks require yaml-cpp, skipping...")
-endif (YAMLCPP_FOUND)
+
+########################################################################
+# json.hpp header
+########################################################################
+find_path(JSON_HPP_INCLUDE_DIR NAMES json.hpp)
+
+if (NOT JSON_HPP_INCLUDE_DIR)
+    message(WARNING "Pothos Audio blocks requires json.hpp, skipping...")
+endif (NOT JSON_HPP_INCLUDE_DIR)
 
 ########################################################################
 ## Feature registration
 ########################################################################
 include(FeatureSummary)
 include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_AUDIO "Enable Pothos Audio component" ON "Pothos_FOUND;PORTAUDIO_FOUND" OFF)
+cmake_dependent_option(ENABLE_AUDIO "Enable Pothos Audio component" ON "Pothos_FOUND;PORTAUDIO_FOUND;JSON_HPP_INCLUDE_DIR" OFF)
 add_feature_info(Audio ENABLE_AUDIO "Streaming audio source and sink blocks")
 if (NOT ENABLE_AUDIO)
     return()
@@ -54,8 +50,8 @@ endif()
 ## Build and install module
 ########################################################################
 include_directories(${PORTAUDIO_INCLUDE_DIRS})
-include_directories(${YAMLCPP_INCLUDE_DIRS})
 add_definitions(${PORTAUDIO_DEFINITIONS})
+include_directories(${JSON_HPP_INCLUDE_DIR})
 
 #the number of frames to block on an IO call
 #when no non-blocking frames are available.
@@ -68,9 +64,7 @@ POTHOS_MODULE_UTIL(
         AudioSource.cpp
         AudioSink.cpp
         AudioInfo.cpp
-    LIBRARIES
-        ${PORTAUDIO_LIBRARIES}
-        ${YAMLCPP_LIBRARIES}
+    LIBRARIES ${PORTAUDIO_LIBRARIES}
     DESTINATION audio
     ENABLE_DOCS
 )
