@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: BSL-1.0
 
 #include "AudioBlock.hpp"
-#include <Poco/JSON/Object.h>
-#include <Poco/JSON/Array.h>
 #include <cctype>
 #include <algorithm>
-#include <sstream>
+#include <json.hpp>
+
+using json = nlohmann::json;
 
 AudioBlock::AudioBlock(const std::string &blockName, const bool isSink, const Pothos::DType &dtype, const size_t numChans, const std::string &chanMode):
     _blockName(blockName),
@@ -60,43 +60,40 @@ AudioBlock::~AudioBlock(void)
 
 std::string AudioBlock::overlay(void) const
 {
-    Poco::JSON::Object::Ptr topObj(new Poco::JSON::Object());
+    json topObj;
+    json params;
 
-    Poco::JSON::Array::Ptr params(new Poco::JSON::Array());
-    topObj->set("params", params);
-
-    Poco::JSON::Object::Ptr deviceNameParam(new Poco::JSON::Object());
-    params->add(deviceNameParam);
-
-    Poco::JSON::Array::Ptr options(new Poco::JSON::Array());
-    deviceNameParam->set("key", "deviceName");
-    deviceNameParam->set("options", options);
+    json options;
+    json deviceNameParam;
+    deviceNameParam["key"] = "deviceName";
 
     //editable drop down for user-controlled input
-    Poco::JSON::Object::Ptr deviceNameWidgetKwargs(new Poco::JSON::Object());
-    deviceNameWidgetKwargs->set("editable", true);
-    deviceNameParam->set("widgetKwargs", deviceNameWidgetKwargs);
-    deviceNameParam->set("widgetType", "ComboBox");
+    json deviceNameWidgetKwargs;
+    deviceNameWidgetKwargs["editable"] = true;
+    deviceNameParam["widgetKwargs"] = deviceNameWidgetKwargs;
+    deviceNameParam["widgetType"] = "ComboBox";
 
     //a default option for empty/unspecified device
-    Poco::JSON::Object::Ptr defaultOption(new Poco::JSON::Object());
-    defaultOption->set("name", "Default Device");
-    defaultOption->set("value", "\"\"");
-    options->add(defaultOption);
+    json defaultOption;
+    defaultOption["name"] = "Default Device";
+    defaultOption["value"] = "\"\"";
+    options.push_back(defaultOption);
 
     //enumerate devices and add to the options list
     for (PaDeviceIndex i = 0; i < Pa_GetDeviceCount(); i++)
     {
-        Poco::JSON::Object::Ptr option(new Poco::JSON::Object());
+        json option;
         const std::string deviceName(Pa_GetDeviceInfo(i)->name);
-        option->set("name", deviceName);
-        option->set("value", "\""+deviceName+"\"");
-        options->add(option);
+        option["name"] = deviceName;
+        option["value"] = "\""+deviceName+"\"";
+        options.push_back(option);
     }
 
-    std::stringstream ss;
-    topObj->stringify(ss, 4);
-    return ss.str();
+    deviceNameParam["options"] = options;
+    params.push_back(deviceNameParam);
+    topObj["params"] = params;
+
+    return topObj.dump();
 }
 
 void AudioBlock::setupDevice(const std::string &deviceName)
