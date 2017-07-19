@@ -1,34 +1,37 @@
-// Copyright (c) 2014-2014 Josh Blum
+// Copyright (c) 2014-2017 Josh Blum
 // SPDX-License-Identifier: BSL-1.0
 
 #include <Pothos/Plugin.hpp>
-#include <Poco/JSON/Array.h>
-#include <Poco/JSON/Object.h>
+#include <yaml-cpp/yaml.h>
 #include <portaudio.h>
+#include <sstream>
 
-static Poco::JSON::Object::Ptr enumerateAudioDevices(void)
+static std::string enumerateAudioDevices(void)
 {
-    Poco::JSON::Object::Ptr topObject = new Poco::JSON::Object();
+    YAML::Node topObject;
     Pa_Initialize();
 
-    Poco::JSON::Array::Ptr devicesArray = new Poco::JSON::Array();
-    topObject->set("PortAudio Device", devicesArray);
+    YAML::Node devicesArray;
+    topObject["PortAudio Device"] = devicesArray;
     for (PaDeviceIndex i = 0; i < Pa_GetDeviceCount(); i++)
     {
         auto info = Pa_GetDeviceInfo(i);
-        Poco::JSON::Object::Ptr infoObject = new Poco::JSON::Object();
-        infoObject->set("Device Name", std::string(info->name));
-        infoObject->set("Host API Name", std::string(Pa_GetHostApiInfo(info->hostApi)->name));
-        infoObject->set("Max Input Channels", info->maxInputChannels);
-        infoObject->set("Max Output Channels", info->maxOutputChannels);
-        infoObject->set("Default Sample Rate", info->defaultSampleRate);
-        devicesArray->add(infoObject);
+        YAML::Node infoObject;
+        infoObject["Device Name"] = std::string(info->name);
+        infoObject["Host API Name"] = std::string(Pa_GetHostApiInfo(info->hostApi)->name);
+        infoObject["Max Input Channels"] = info->maxInputChannels;
+        infoObject["Max Output Channels"] = info->maxOutputChannels;
+        infoObject["Default Sample Rate"] = info->defaultSampleRate;
+        devicesArray.push_back(infoObject);
     }
 
-    topObject->set("PortAudio Version", std::string(Pa_GetVersionText()));
+    topObject["PortAudio Version"] = std::string(Pa_GetVersionText());
 
     Pa_Terminate();
-    return topObject;
+
+    std::stringstream ss;
+    ss << topObject;
+    return ss.str();
 }
 
 pothos_static_block(registerAudioInfo)
