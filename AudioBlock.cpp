@@ -68,9 +68,7 @@ std::string AudioBlock::overlay(void) const
     deviceNameParam["key"] = "deviceName";
 
     //editable drop down for user-controlled input
-    json deviceNameWidgetKwargs;
-    deviceNameWidgetKwargs["editable"] = true;
-    deviceNameParam["widgetKwargs"] = deviceNameWidgetKwargs;
+    deviceNameParam["widgetKwargs"]["editable"] = true;
     deviceNameParam["widgetType"] = "ComboBox";
 
     //a default option for empty/unspecified device
