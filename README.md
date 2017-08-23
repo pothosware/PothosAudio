@@ -1,5 +1,9 @@
 # Streaming audio support for Pothos
 
+## Documentation
+
+* https://github.com/pothosware/PothosAudio/wiki
+
 ## Dependencies
 
 * Pothos library

@@ -10,9 +10,9 @@ Build-Depends:
     nlohmann-json-dev,
     portaudio19-dev, libjack-jackd2-dev
 Standards-Version: 3.9.8
-Homepage: https://github.com/pothosware/pothos-audio/wiki
-Vcs-Git: https://github.com/pothosware/pothos-audio.git
-Vcs-Browser: https://github.com/pothosware/pothos-audio
+Homepage: https://github.com/pothosware/PothosAudio/wiki
+Vcs-Git: https://github.com/pothosware/PothosAudio.git
+Vcs-Browser: https://github.com/pothosware/PothosAudio
 
 Package: pothos-modules-audio
 Section: libs
