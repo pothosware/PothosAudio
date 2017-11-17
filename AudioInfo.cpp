@@ -30,7 +30,7 @@ static std::string enumerateAudioDevices(void)
 
     Pa_Terminate();
 
-    return devicesArray.dump();
+    return topObject.dump();
 }
 
 pothos_static_block(registerAudioInfo)
