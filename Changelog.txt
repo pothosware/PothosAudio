@@ -1,15 +1,11 @@
 This this the changelog file for the Pothos Audio toolkit.
 
-Release 0.3.0 (pending)
+Release 0.3.0 (2017-12-25)
 ==========================
 
 - Renamed the project repo from pothos-audio to PothosAudio
 - Audio info switched to Pothos version 0.6 device info format
 - Alternative JSON C++ library to handle JSON parsing/emitting
-
-Release 0.2.2 (pending)
-==========================
-
 - Fixed widget type for device selection overlay
 
 Release 0.2.1 (2017-07-14)
