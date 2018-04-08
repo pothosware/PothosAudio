@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017 Josh Blum
+// Copyright (c) 2014-2018 Josh Blum
 // SPDX-License-Identifier: BSL-1.0
 
 #include "AudioBlock.hpp"
@@ -144,7 +144,7 @@ void AudioBlock::setupStream(const double sampRate)
     const int requestedSize = Pa_GetSampleSize(_streamParams.sampleFormat);
 
     //try stream
-    PaError err = Pa_IsFormatSupported(nullptr, &_streamParams, sampRate);
+    PaError err = Pa_IsFormatSupported(_isSink?nullptr:&_streamParams, _isSink?&_streamParams:nullptr, sampRate);
     if (err != paNoError)
     {
         throw Pothos::Exception("AudioBlock::setupStream()", "Pa_IsFormatSupported: " + std::string(Pa_GetErrorText(err)));
