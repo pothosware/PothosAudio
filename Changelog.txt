@@ -1,5 +1,10 @@
 This this the changelog file for the Pothos Audio toolkit.
 
+Release 0.3.2 (pending)
+==========================
+
+- Fix find port audio library path on osx
+
 Release 0.3.1 (2018-04-11)
 ==========================
 
